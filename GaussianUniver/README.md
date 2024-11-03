@@ -54,6 +54,35 @@ Computes operator norms for symmetric tensors.
 - **`tensor_operator_norm(T, j)`**: Computes the `j -> k-j` operator norm for a symmetric tensor `T`.
 - **`tensor_operator_flatten(T, j)`**: Flattens the tensor `T` to matrix form based on `j` and `k-j` dimensions.
 
-## Usage
+## Usage Example
 
-Each script can be run independently to test specific functionalities or as part of broader simulations. Use `ERMcontrol.py` for example usage of each function.
+### [`ERMcontrol.py`](./ERMcontrol.py)
+
+This file serves as a usage example for the `GaussianUniver` package. It demonstrates how to use the core functions for empirical risk minimization and tensor operator norms with a simulated dataset.
+
+#### Key Imports
+
+- **`from GaussianUniver.ERM import generate_data, empirical_risk_minimization`**: Imports `generate_data` to create synthetic data and `empirical_risk_minimization` to optimize tensor parameters.
+- **`from GaussianUniver.ERMleaveOneOut import empirical_risk_minimization_constrained_direction`**: Imports `empirical_risk_minimization_constrained_direction` for constrained optimization with a specified direction.
+- **`from GaussianUniver.symmetricTensorNorm import tensor_operator_norm, tensor_operator_flatten`**: Imports `tensor_operator_norm` and `tensor_operator_flatten` for calculating operator norms of tensors.
+
+#### Step-by-Step Explanation
+
+1. **Parameter Setup**: Defines key parameters such as `lambda_reg` (regularization), `alpha` (sample size factor), `k` (Hermite polynomial degree), and `d` (feature dimension).
+2. **Data Generation**:
+   - Uses `generate_data(d, k, alpha)` to generate a dataset `X` and labels `y`.
+3. **Loss Function Selection**:
+   - Defines several loss functions, including `exponential_loss`, `logistic_loss`, `squared_loss`, `huber_loss`, `hinge_loss`, and `smooth_l1_loss`, along with their gradients.
+   - Uses `smooth_l1_loss` and `smooth_l1_loss_grad` as the selected loss function and gradient for this example.
+4. **Empirical Risk Minimization**:
+   - Calls `empirical_risk_minimization(X, y, k, lambda_reg, loss_function, loss_function_grad)` to perform the optimization, returning `T_hat` as the optimized tensor.
+   - Computes the operator norm of `T_hat` with `tensor_operator_norm(T_hat, 1)`.
+5. **Constrained Direction Minimization**:
+   - Generates a random normalized vector `u` and calls `empirical_risk_minimization_constrained_direction` to perform minimization with the constraint in direction `u`.
+   - Computes norms for comparison:
+     - `T_operator_norm[(d,j)]`: Operator norm of the constrained tensor.
+     - `true_T_operator_norm[(d,j)]`: Operator norm of the true tensor.
+     - `comparision_dependent_grad[(d,j)]`: Operator norm for comparison.
+6. **Plotting Results**:
+   - Uses `matplotlib` to plot the operator norms across dimensions `d`, providing insights into the effect of dimensions on tensor norms.
+   - Saves the plot to `figures/` with a descriptive filename.
