@@ -37,3 +37,5 @@ For more in-depth documentation on each package, please refer to the respective 
 
 - [GaussianUniver README](./GaussianUniver/README.md)
 - [GaussianUniverRandomFeature README](./GaussianUniverRandomFeature/README.md)
+
+Note, in our codes the labels y are independent of x.
