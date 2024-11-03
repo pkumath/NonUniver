@@ -71,16 +71,16 @@ if __name__ == "__main__":
     print("Shape of W:", W.shape)
     print("W:", W)
     # # Choose loss function and its gradient
-    # # For regression
-    loss_function = squared_loss
-    loss_function_grad = squared_loss_grad
-    y = y  # Use original y
+    # # # For regression
+    # loss_function = squared_loss
+    # loss_function_grad = squared_loss_grad
+    # y = y  # Use original y
     
     # For logistic regression (classification)
     # # Uncomment the following lines to use logistic loss
-    # loss_function = logistic_loss
-    # loss_function_grad = logistic_loss_grad
-    # y = y_classification  # Use binary labels
+    loss_function = logistic_loss
+    loss_function_grad = logistic_loss_grad
+    y = y_classification  # Use binary labels
 
     # Perform empirical risk minimization
     ba_opt, W = empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_function_grad)
