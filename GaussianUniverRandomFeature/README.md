@@ -50,7 +50,7 @@ The primary purpose of `GaussianUniverRandomFeature` is to perform empirical ris
 
 This package provides flexible tools for exploring random feature models using Hermite polynomial transformations. For detailed usage, refer to the function docstrings within each file.
 
-### 3.[`RandomFeatureTest.py`](./RandomFeatureTest.py)
+### 3.[`RandomFeatureTest.py`](../RandomFeatureTest.py)
 
 This file serves as an example of how to use the `GaussianUniverRandomFeature` package. It demonstrates generating random features, performing empirical risk minimization (ERM) using these features, and analyzing the resulting coefficients. Key functions and steps used in this file are explained below.
 
