@@ -4,7 +4,7 @@ This package provides functionality for simulations and empirical risk minimizat
 
 ## File Descriptions
 
-### 1. `ERM.py`
+### 1. [`ERM.py`](./ERM.py)
 
 Implements empirical risk minimization for Hermite kernel feature models. 
 
@@ -21,7 +21,7 @@ Implements empirical risk minimization for Hermite kernel feature models.
 #### Example Loss Functions:
 - **`squared_loss`** and **`logistic_loss`**: Loss functions and gradients for regression and classification tasks.
 
-### 2. `ERMleaveOneOut.py`
+### 2. [`ERMleaveOneOut.py`](./ERMleaveOneOut.py)
 
 Extends `ERM.py` to include leave-one-out functionality and symmetry-constrained minimization.
 
@@ -29,7 +29,7 @@ Extends `ERM.py` to include leave-one-out functionality and symmetry-constrained
 - **`empirical_risk_minimization_leave_one_out(...)`**: Excludes a specific sample during minimization, recalculating features and adjusting predictions.
 - **`empirical_risk_minimization_constrained_direction(...)`**: Adds symmetry constraints during optimization, preserving specific tensor contraction properties.
 
-### 3. `hermiteFeature.py`
+### 3. [`hermiteFeature.py`](./hermiteFeature.py)
 
 Provides functions to compute tensorized Hermite features for input data.
 
@@ -37,7 +37,7 @@ Provides functions to compute tensorized Hermite features for input data.
 - **`hermite_polynomials(x, k)`**: Computes Hermite polynomials up to degree `k` for each input sample.
 - **`tensorized_hermite_features(X, k)`**: Constructs tensorized Hermite features of degree `k` for each sample in `X`, combining univariate polynomials.
 
-### 4. `Optimization.py`
+### 4. [`Optimization.py`](./Optimization.py)
 
 Implements optimization routines and symmetric tensor operations for Hermite models.
 
@@ -46,7 +46,7 @@ Implements optimization routines and symmetric tensor operations for Hermite mod
 - **`train_model(...)`**: Trains a model using Hermite features across specified degrees.
 - **`compute_erm(...)`**: Calculates empirical risk for the model, including regularization.
 
-### 5. `symmetricTensorNorm.py`
+### 5. [`symmetricTensorNorm.py`](./symmetricTensorNorm.py)
 
 Computes operator norms for symmetric tensors.
 
