@@ -2,7 +2,7 @@ import numpy as np
 from scipy.optimize import minimize
 from .hermiteFeature import vectorized_hermite_features
 
-def generate_data(d, k, alpha):
+def generate_data(d, k, alpha, signal=True):
     """
     Generate dataset with n = alpha * d^k samples.
     Returns:
@@ -11,8 +11,12 @@ def generate_data(d, k, alpha):
     """
     n = int(alpha * (d ** k))
     X = np.random.randn(n, d)
-    y = np.random.randn(n)
+    # y = np.random.randn(n)
     # y = 1/2**0.5*(X[:, 0]**2 - 1)
+    if signal:
+        y = 1/2**0.5*(X[:, 0]**2 - 1)
+    else:
+        y = np.random.randn(n)
     return X, y
 
 def generate_random_weights(M, d):
@@ -90,32 +94,32 @@ def compute_K(Z, F):
     K = Z @ F.T  # Shape: (n_samples, M)
     return K
 
-def compute_empirical_risk(ba, K, y, lambda_reg, loss_function):
+def compute_empirical_risk(ba, K, y, lambda_reg, loss_function, scaling_factor=1):
     """
     Compute empirical risk for given coefficients ba.
     """
     n_samples = y.shape[0]
     M = K.shape[1]
-    # y_pred = (1 / np.sqrt(M)) * K @ ba  # Predictions
-    y_pred =  K @ ba  # Predictions
+    y_pred = scaling_factor * K @ ba  # Predictions
+    # y_pred =  K @ ba  # Predictions
     loss_values = loss_function(y, y_pred)
     empirical_risk = (1 / n_samples) * np.sum(loss_values) + lambda_reg * np.dot(ba, ba)
     return empirical_risk
 
-def compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad):
+def compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad, scaling_factor=1):
     """
     Compute gradient of empirical risk with respect to ba.
     """
     n_samples = y.shape[0]
     M = K.shape[1]
-    # y_pred = (1 / np.sqrt(M)) * K @ ba
-    y_pred =K @ ba
+    y_pred = scaling_factor * K @ ba
+    # y_pred =K @ ba
     loss_grad_values = loss_function_grad(y, y_pred)  # Shape: (n_samples,)
-    # grad = (1 / n_samples) * ((1 / np.sqrt(M)) * K.T @ loss_grad_values) + 2 * lambda_reg * ba
-    grad = (1 / n_samples) * ( K.T @ loss_grad_values) + 2 * lambda_reg * ba
+    grad = (1 / n_samples) * (scaling_factor * K.T @ loss_grad_values) + 2 * lambda_reg * ba
+    # grad = (1 / n_samples) * ( K.T @ loss_grad_values) + 2 * lambda_reg * ba
     return grad
 
-def empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_function_grad):
+def empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_function_grad, scaling_factor=1):
     """
     Perform empirical risk minimization to find optimal coefficients ba.
     """
@@ -141,10 +145,10 @@ def empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_functio
     
     # Define objective function and gradient
     def objective(ba):
-        return compute_empirical_risk(ba, K, y, lambda_reg, loss_function)
+        return compute_empirical_risk(ba, K, y, lambda_reg, loss_function, scaling_factor)
     
     def gradient(ba):
-        return compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad)
+        return compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad, scaling_factor)
     
     # Optimize using scipy.optimize.minimize
     print("Starting optimization...")
@@ -222,7 +226,7 @@ if __name__ == "__main__":
     M =  int(alpha * (d ** k))             # Number of random features
 
     # Generate data
-    X, y = generate_data(d, k, alpha)
+    X, y = generate_data(d, k, alpha, signal=True)
     # For logistic regression, y should be in {0, 1}
     y_classification = (y > 0).astype(np.float64)*2-1  # Convert to binary labels
 
