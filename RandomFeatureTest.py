@@ -56,7 +56,7 @@ if __name__ == "__main__":
     lambda_reg = 0.3  # Regularization parameter
     alpha = 1        # Ratio parameter
     k = 2              # Degree of Hermite polynomials
-    d = 20              # Dimension of input features
+    d = 60              # Dimension of input features
     signal = True
 
 
@@ -66,15 +66,16 @@ if __name__ == "__main__":
     y_classification = (y > 0).astype(np.float64)*2-1  # Convert to binary labels
 
     # Generate random weights W
-    M =  int(alpha * (d ** k))             # Number of random features
-    scaling_factor = 1/np.sqrt(M)
+    M =  int(alpha * (d ** 2))             # Number of random features
+    # scaling_factor = 1/np.sqrt(M)
+    scaling_factor = 1
     W = generate_random_weights(M, d)
 
     # 检查 W 的形状和内容
     print("Shape of W:", W.shape)
     print("W:", W)
     # # Choose loss function and its gradient
-    # # # For regression
+    # For regression
     loss_function = squared_loss
     loss_function_grad = squared_loss_grad
     y = y  # Use original y
@@ -102,25 +103,27 @@ if __name__ == "__main__":
     plt.show()
 
 
-    repeat = 40
+    repeat = 70
     ba_inf_norm = dict()
     ba_1_norm = dict()
     ba_2_norm = dict()
+    ba_1_sum = dict()
     B_op_norm = dict()
     B_frobe_norm = dict()
     B_cross_norm = dict()
     for d in range(2,repeat):
         signal = True
         X, y = generate_data(d, k, alpha, signal=signal)
-        M =  int(alpha * (d ** k))             # Number of random features
-        scaling_factor = 1/np.sqrt(M)   
+        M =  int(alpha * (d ** 2))             # Number of random features
+        # scaling_factor = 1/np.sqrt(M)   
         W = generate_random_weights(M, d)
-        y_classification = 2*(y > 0).astype(np.float64)-1
-        y = y_classification
+        # y_classification = 2*(y > 0).astype(np.float64)-1
+        # y = y_classification
         ba_hat, W = empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_function_grad, scaling_factor=scaling_factor)
         ba_inf_norm[d] = np.linalg.norm(ba_hat, np.inf)
         ba_1_norm[d] = np.linalg.norm(ba_hat, 1)
         ba_2_norm[d] = np.linalg.norm(ba_hat, 2)
+        ba_1_sum[d] = np.sum(ba_hat)
         # Calculate the matrix B. Its definition is that, for each i, B = \sum_{j=1}^M ba_hat[j] * row_j(W) * row_j(W)^T
         B = np.sum([ba_hat[j] * np.outer(W[j], W[j]) for j in range(M)], axis=0)
         #l2 norm of the first row of B, but without the first element
@@ -137,8 +140,9 @@ if __name__ == "__main__":
     ax.plot(list(ba_inf_norm.keys()), list(ba_inf_norm.values()), label='infinity norm')
     ax.plot(list(ba_1_norm.keys()), list(ba_1_norm.values()), label='1 norm')
     ax.plot(list(ba_2_norm.keys()), list(ba_2_norm.values()), label='2 norm')
+    ax.plot(list(ba_1_sum.keys()), list(ba_1_sum.values()), label='1 sum')
     # Plot 1/d**0.5 for comparison
-    ax.plot(np.arange(2, repeat), 0.5/(np.arange(2, repeat)**0.5), label='1/d**0.5')
+    ax.plot(np.arange(2, repeat), 0.5/(np.arange(2, repeat)**(-3/4)), label='1/d**0.5')
     ax.legend()
     ax.set_xlabel("Dimension")
     ax.set_ylabel("Norm")
@@ -146,7 +150,7 @@ if __name__ == "__main__":
 
     plt.show()
     # Save the plot
-    fig.savefig(f"figures/Nov8/SignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Nov20/SignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
 
     # For each d and j, plot the norms of ba_hat
     
@@ -154,8 +158,9 @@ if __name__ == "__main__":
     ax.plot(list(ba_inf_norm.keys()), list(ba_inf_norm.values()), label='infinity norm')
     # ax.plot(list(ba_1_norm.keys()), list(ba_1_norm.values()), label='1 norm')
     ax.plot(list(ba_2_norm.keys()), list(ba_2_norm.values()), label='2 norm')
+    ax.plot(list(ba_1_sum.keys()), list(ba_1_sum.values()), label='1 sum')
     # Plot 1/d**0.5 for comparison
-    ax.plot(np.arange(2, repeat), 0.5/(np.arange(2, repeat)**0.5), label='1/d**0.5')
+    ax.plot(np.arange(2, repeat), 0.5/(np.arange(2, repeat)**(0.5)), label='1/d**0.5')
     ax.legend()
     ax.set_xlabel("Dimension")
     ax.set_ylabel("Norm")
@@ -163,7 +168,7 @@ if __name__ == "__main__":
 
     plt.show()
     # Save the plot
-    fig.savefig(f"figures/Nov8/ZoomSignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Nov20/ZoomSignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
 
     # For each d, plot the operator norm of B
     fig, ax = plt.subplots()
@@ -178,7 +183,7 @@ if __name__ == "__main__":
     plt.show()
 
     # Save the plot
-    fig.savefig(f"figures/Nov8/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_Signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Nov20/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_Signal{signal}_scaling{scaling_factor}.png")
 
     # For each d, plot the Frobenius norm of B
     fig, ax = plt.subplots()
@@ -201,6 +206,6 @@ if __name__ == "__main__":
     ax.set_title(f"Cross norm of the matrix B for different dimensions,\n lambda={lambda_reg}, alpha={alpha},and we use loss function {loss_function.__name__}. \n  Signal is {signal}. Scaling factor is {scaling_factor}.")
     plt.show()
     # Save the plot
-    fig.savefig(f"figures/Nov8/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_cross_Signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Nov20/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_cross_Signal{signal}_scaling{scaling_factor}.png")
     
 
