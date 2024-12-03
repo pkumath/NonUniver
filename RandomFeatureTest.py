@@ -48,7 +48,51 @@ def smooth_l1_loss_grad(y_true, y_pred):
     diff = y_pred - y_true
     return np.where(np.abs(diff) < 1, diff, np.sign(diff))
 
+def exponential_loss_hess(y_true, y_pred):
+    """
+    Second derivative (Hessian) of the exponential loss with respect to y_pred.
+    """
+    return y_true ** 2 * np.exp(-y_true * y_pred)
 
+def logistic_loss_hess(y_true, y_pred):
+    """
+    Second derivative (Hessian) of the logistic loss with respect to y_pred.
+    Assumes y_true in {-1, 1}.
+    """
+    exp_term = np.exp(y_true * y_pred)
+    denom = (1 + exp_term) ** 2
+    return exp_term / denom
+
+def squared_loss_hess(y_true, y_pred):
+    """
+    Second derivative (Hessian) of the squared loss with respect to y_pred.
+    """
+    return np.ones_like(y_pred)
+
+def huber_loss_hess(y_true, y_pred, delta=1.0):
+    """
+    Second derivative (Hessian) of the Huber loss with respect to y_pred.
+    """
+    diff = y_pred - y_true
+    abs_diff = np.abs(diff)
+    return np.where(abs_diff <= delta, np.ones_like(y_pred), np.zeros_like(y_pred))
+
+def hinge_loss_hess(y_true, y_pred):
+    """
+    Second derivative (Hessian) of the hinge loss with respect to y_pred.
+    Note: The hinge loss is not twice differentiable; the second derivative
+    does not exist at certain points. We return zero almost everywhere.
+    """
+    # Second derivative is zero almost everywhere
+    return np.zeros_like(y_pred)
+
+def smooth_l1_loss_hess(y_true, y_pred):
+    """
+    Second derivative (Hessian) of the Smooth L1 loss with respect to y_pred.
+    """
+    diff = y_true - y_pred
+    abs_diff = np.abs(diff)
+    return np.where(abs_diff < 1, np.ones_like(y_pred), np.zeros_like(y_pred))
 
 # Main function
 if __name__ == "__main__":
@@ -150,7 +194,7 @@ if __name__ == "__main__":
 
     plt.show()
     # Save the plot
-    fig.savefig(f"figures/Nov20/SignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Dec3/SignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
 
     # For each d and j, plot the norms of ba_hat
     
@@ -168,7 +212,7 @@ if __name__ == "__main__":
 
     plt.show()
     # Save the plot
-    fig.savefig(f"figures/Nov20/ZoomSignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Dec3/ZoomSignalrandomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_signal{signal}_scaling{scaling_factor}.png")
 
     # For each d, plot the operator norm of B
     fig, ax = plt.subplots()
@@ -183,7 +227,7 @@ if __name__ == "__main__":
     plt.show()
 
     # Save the plot
-    fig.savefig(f"figures/Nov20/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_Signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Dec3/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_Signal{signal}_scaling{scaling_factor}.png")
 
     # For each d, plot the Frobenius norm of B
     fig, ax = plt.subplots()
@@ -206,6 +250,6 @@ if __name__ == "__main__":
     ax.set_title(f"Cross norm of the matrix B for different dimensions,\n lambda={lambda_reg}, alpha={alpha},and we use loss function {loss_function.__name__}. \n  Signal is {signal}. Scaling factor is {scaling_factor}.")
     plt.show()
     # Save the plot
-    fig.savefig(f"figures/Nov20/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_cross_Signal{signal}_scaling{scaling_factor}.png")
+    fig.savefig(f"figures/Dec3/randomFeature_lambda{lambda_reg}_alpha{alpha}_loss{loss_function.__name__}_repeat{repeat}_B_cross_Signal{signal}_scaling{scaling_factor}.png")
     
 
