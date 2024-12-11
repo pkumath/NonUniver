@@ -2,6 +2,21 @@ import numpy as np
 from scipy.optimize import minimize
 from .hermiteFeature import vectorized_hermite_features
 
+def prediction_model(scaling_factor, K, ba, X, centering=False):
+    """
+    Predict the output of the model for given input X.
+    """
+    y_pred = scaling_factor * K @ ba
+    if centering:
+        d = X.shape[1]
+        # We first calculate matrix C, where each row is the 2 norm squared of each row of X
+        C = np.sum(X ** 2, axis=1)
+        # Then we subtract each row of C by d 
+        C -= d
+        y_pred = y_pred - C/(np.sqrt(2)*d) * (np.sum(ba))
+    return y_pred
+
+
 def generate_data(d, k, alpha, signal=True):
     """
     Generate dataset with n = alpha * d^k samples.
@@ -94,55 +109,91 @@ def compute_K(Z, F):
     K = Z @ F.T  # Shape: (n_samples, M)
     return K
 
-def compute_empirical_risk(ba, K, y, lambda_reg, loss_function, scaling_factor=1):
+def compute_empirical_risk(ba, K, y, lambda_reg, loss_function, scaling_factor=1, X=1,centering=False):
     """
     Compute empirical risk for given coefficients ba.
     """
     n_samples = y.shape[0]
     M = K.shape[1]
-    y_pred = scaling_factor * K @ ba  # Predictions
+    # y_pred = scaling_factor * K @ ba  # Predictions
+    y_pred =  prediction_model(scaling_factor, K, ba, X, centering)
     # y_pred =  K @ ba  # Predictions
     loss_values = loss_function(y, y_pred)
     empirical_risk = (1 / n_samples) * np.sum(loss_values) + lambda_reg * np.dot(ba, ba)
     return empirical_risk
 
-def compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad, scaling_factor=1):
+def compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad, scaling_factor=1, X=1, centering=False):
     """
-    Compute gradient of empirical risk with respect to ba.
+    Compute gradient of empirical risk with respect to ba, considering the centering term in prediction_model.
     """
     n_samples = y.shape[0]
     M = K.shape[1]
-    y_pred = scaling_factor * K @ ba
-    # y_pred =K @ ba
+    y_pred = prediction_model(scaling_factor, K, ba, X, centering)
     loss_grad_values = loss_function_grad(y, y_pred)  # Shape: (n_samples,)
-    grad = (1 / n_samples) * (scaling_factor * K.T @ loss_grad_values) + 2 * lambda_reg * ba
-    # grad = (1 / n_samples) * ( K.T @ loss_grad_values) + 2 * lambda_reg * ba
+
+    # 基础梯度项（来自 scaling_factor * K @ ba）
+    grad = (scaling_factor / n_samples) * (K.T @ loss_grad_values) + 2 * lambda_reg * ba
+
+    # 若 centering 为 True，需要额外考虑 (C/d)*sum(ba) 对梯度的贡献
+    if centering:
+        d = X.shape[1]
+        C = np.sum(X**2, axis=1)  # (n,)
+        C -= d
+        # 此项对 y_pred 的贡献为 (C/d)*sum(ba)，对 ba 的梯度为 (C/d) 的加权和，再乘以全1向量。
+        # 首先计算 (C/d)*loss_grad_values 的点积求和：
+        correction = ((C/(np.sqrt(2)*d)) @ loss_grad_values) / n_samples  # 标量
+
+        # sum(ba) 对 ba 的梯度为一个全 1 的向量，因此补偿项是 correction * np.ones(M)
+        grad -= correction * np.ones(M)
+
     return grad
 
-def compute_empirical_risk_hessian(ba, K, y, lambda_reg, loss_function_hess, scaling_factor=1):
+def compute_empirical_risk_hessian(ba, K, y, lambda_reg, loss_function_hess, scaling_factor=1, X=1, centering=False):
     """
-    Compute the Hessian of the empirical risk at a given point ba.
-
+    Compute the Hessian of the empirical risk at a given point ba, considering the centering term used in prediction_model.
+    
     Parameters:
-    - ba: Coefficient vector at which to compute the Hessian.
-    - K: Feature matrix.
-    - y: Labels.
+    - ba: Coefficient vector at which to compute the Hessian. Shape: (M,)
+    - K: Feature matrix, shape: (n_samples, M)
+    - y: Labels, shape: (n_samples,)
     - lambda_reg: Regularization parameter.
-    - loss_function_hess: Second derivative of the loss function.
+    - loss_function_hess: A function that returns the second derivative of the loss w.r.t. y_pred.
+                         Should return an array of shape (n_samples,).
     - scaling_factor: Scaling factor for predictions.
+    - X: The input data used for centering if centering=True. Default=1 means no actual centering data.
+    - centering: If True, applies the centering correction in the prediction_model.
 
     Returns:
-    - H: Hessian matrix.
+    - H: Hessian matrix of shape (M, M).
     """
     n_samples = y.shape[0]
-    y_pred = scaling_factor * K @ ba  # Shape: (n_samples,)
-    loss_hess_values = loss_function_hess(y, y_pred)  # Shape: (n_samples,)
+    M = K.shape[1]
 
-    # Compute Hessian matrix
-    H = (1 / n_samples) * (
-        scaling_factor ** 2 * K.T @ (loss_hess_values[:, np.newaxis] * K)
-    ) + 2 * lambda_reg * np.eye(ba.shape[0])
+    # 使用 prediction_model 函数计算 y_pred
+    y_pred = prediction_model(scaling_factor, K, ba, X, centering)
+
+    # 计算 loss 的二阶导数值
+    loss_hess_values = loss_function_hess(y, y_pred)  # shape: (n_samples,)
+
+    # 根据 prediction_model 的定义推导 Z 矩阵（y_pred对ba的一阶导数）
+    # 若 centering=False: y_pred = scaling_factor * K @ ba
+    # dy_pred/dba = scaling_factor * K  -> Z = scaling_factor*K
+    #
+    # 若 centering=True: y_pred = scaling_factor * K @ ba + (C/d)*sum(ba)
+    # dy_pred/dba = scaling_factor*K + (C/d)*1_vector
+    # 其中 C = np.sum(X**2, axis=1)-d, d = X.shape[1]
+    if centering:
+        d = X.shape[1]
+        C = np.sum(X**2, axis=1)
+        C -= d
+        Z = scaling_factor * K - (C/(np.sqrt(2)*d))[:, np.newaxis] * np.ones((1, M))
+    else:
+        Z = scaling_factor * K
+
+    # 计算 Hessian: H = (1/n)*Z^T * diag(loss_hess_values) * Z + 2*lambda_reg*I
+    H = (1 / n_samples) * (Z.T @ (loss_hess_values[:, np.newaxis] * Z)) + 2 * lambda_reg * np.eye(M)
     return H
+
 
 # def empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_function_grad, scaling_factor=1):
 #     """
@@ -193,23 +244,31 @@ def compute_empirical_risk_hessian(ba, K, y, lambda_reg, loss_function_hess, sca
 
 
 
-def empirical_risk_minimization(X_full, y_full, W, lambda_reg, loss_function, loss_function_grad, scaling_factor=1, exclude_index=None):
+def empirical_risk_minimization(X_full, y_full, W, lambda_reg, loss_function, loss_function_grad, scaling_factor=1, exclude_index=None, return_FZ=False, return_risk=False, centering=False):
     """
     Perform empirical risk minimization.
-    
+
     Parameters:
-    - X_full: Full dataset features.
-    - y_full: Full dataset labels.
-    - W: Random weights.
+    - X_full: Full dataset features. Shape: (N, d)
+    - y_full: Full dataset labels. Shape: (N,)
+    - W: Random weights. Shape: (M, d)
     - lambda_reg: Regularization parameter.
-    - loss_function: Loss function.
-    - loss_function_grad: Gradient of the loss function.
-    - exclude_index: If integer, index of the data point to exclude. If None or False, include all data points.
-    
+    - loss_function: Loss function handle.
+    - loss_function_grad: Gradient of the loss function handle.
+    - scaling_factor: Scaling factor for the prediction model.
+    - exclude_index: If integer, the index of the data point to exclude from optimization.
+                     If None or False, include all data points.
+    - return_FZ: If True, returns also the matrix K.
+    - return_risk: If True, returns also the final risk value.
+    - centering: If True, use the centering correction in prediction_model.
+
     Returns:
     - ba_opt: Optimized coefficients.
     - W: Random weights (unchanged).
+    - If return_FZ is True, also returns K.
+    - If return_risk is True, also returns the final empirical risk.
     """
+
     # Exclude the data point if exclude_index is provided
     if isinstance(exclude_index, int):
         print(f"Excluding data point at index {exclude_index} from the optimization.")
@@ -239,12 +298,13 @@ def empirical_risk_minimization(X_full, y_full, W, lambda_reg, loss_function, lo
     # Initialize coefficients ba
     ba_init = np.zeros(M)
 
-    # Define objective function and gradient
+    # Define objective function and gradient, now passing X and centering
     def objective(ba):
-        return compute_empirical_risk(ba, K, y, lambda_reg, loss_function, scaling_factor)
+        return compute_empirical_risk(ba, K, y, lambda_reg, loss_function, scaling_factor, X, centering)
     
     def gradient(ba):
-        return compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad, scaling_factor)
+        return compute_empirical_risk_grad(ba, K, y, lambda_reg, loss_function_grad, scaling_factor, X, centering)
+
     # Optimize using scipy.optimize.minimize
     print("Starting optimization...")
     result = minimize(
@@ -252,32 +312,55 @@ def empirical_risk_minimization(X_full, y_full, W, lambda_reg, loss_function, lo
         x0=ba_init,
         jac=gradient,
         method='L-BFGS-B',
-        options={'disp': True}
+        options={'disp': False}
     )
     print("Optimization finished.")
     print("Final loss value:", result.fun)
 
     # Get the optimized coefficients
     ba_opt = result.x
+
+    if return_FZ and return_risk:
+        return ba_opt, W, K, result.fun
+    elif return_FZ:
+        return ba_opt, W, K
+    elif return_risk:
+        return ba_opt, W, result.fun
+
     return ba_opt, W
 
 
-def compute_S_k(ba, cR_excl_k_at_hat_ba, hat_ba_excl_k, H_excl_k, K_k, y_k, n_full_samples, loss_function, scaling_factor=1):
-    y_pred_k = scaling_factor * K_k @ ba
-    loss_value_k = loss_function(y_k, y_pred_k)
+def compute_S_k(ba, cR_excl_k_at_hat_ba, hat_ba_excl_k, H_excl_k, K_k, y_k, n_full_samples, loss_function, scaling_factor=1, X=1, centering=False):
+    # 使用 prediction_model 来计算预测值
+    y_pred_k = prediction_model(scaling_factor, K_k, ba, X, centering)
+    loss_value_k = loss_function(y_k, y_pred_k)  # 假设返回 (n_samples,) 数组
     diff = ba - hat_ba_excl_k
-    S_k = cR_excl_k_at_hat_ba + (1 / n_full_samples) * loss_value_k + 0.5 * diff.T @ H_excl_k @ diff
-    # print(f"Shape of S_k: {S_k.shape}, shape of cR_excl_k_at_hat_ba: {cR_excl_k_at_hat_ba.shape}, shape of loss_value_k: {loss_value_k.shape}, shape of diff: {diff.shape}")
+
+    # 求和 loss_value_k 再除以 n_full_samples
+    S_k = cR_excl_k_at_hat_ba + (1 / n_full_samples) * np.sum(loss_value_k) + 0.5 * diff.T @ H_excl_k @ diff
     return S_k
 
-def compute_S_k_grad(ba, hat_ba_excl_k, H_excl_k, K_k, y_k, n_full_samples, loss_function_grad, scaling_factor=1):
-    y_pred_k = scaling_factor * K_k @ ba
-    loss_grad_k = loss_function_grad(y_k, y_pred_k)
-    grad_loss = (1 / n_full_samples) * (scaling_factor * K_k.T * loss_grad_k)
-    grad_loss = grad_loss.flatten()
+def compute_S_k_grad(ba, hat_ba_excl_k, H_excl_k, K_k, y_k, n_full_samples, loss_function_grad, scaling_factor=1, X=1, centering=False):
+    # 使用 prediction_model 来计算预测值
+    y_pred_k = prediction_model(scaling_factor, K_k, ba, X, centering)
+    loss_grad_k = loss_function_grad(y_k, y_pred_k)  # (n_samples,)
+
+    # 基础梯度项（对应 scaling_factor * K_k @ ba 部分）
+    grad_loss = (scaling_factor / n_full_samples) * (K_k.T @ loss_grad_k)
+
+    # 若 centering 为 True 且 X 可用，则考虑额外的梯度修正
+    if centering and not (isinstance(X, int) and X == 1):
+        d = X.shape[1]
+        C = np.sum(X**2, axis=1) - d
+        # 此时需要加上 ((C/d)*sum(ba)) 对梯度的影响：对应对 y_pred 的梯度来说，是一个全1向量乘上 ((C/d)*loss_grad 项的平均)
+        correction = ((C/(np.sqrt(2)*d)) @ loss_grad_k) / n_full_samples
+        grad_loss -= correction * np.ones_like(ba)
+
+    # 最终梯度为来自损失部分的梯度加上二阶近似项 H_excl_k(ba - hat_ba_excl_k)
     grad_S_k = grad_loss + H_excl_k @ (ba - hat_ba_excl_k)
-    # print(f"Shape of grad_S_k: {grad_S_k.shape}, shape of grad_loss: {grad_loss.shape}, shape of H_excl_k: {H_excl_k.shape}, shape of ba: {ba.shape}, shape of hat_ba_excl_k: {hat_ba_excl_k.shape}")
+
     return grad_S_k
+
 
 
 def approximate_empirical_risk_minimization(
@@ -289,7 +372,10 @@ def approximate_empirical_risk_minimization(
     loss_function_grad,
     loss_function_hess,
     scaling_factor=1,
-    exclude_index=None
+    exclude_index=None,
+    return_FZ=False,
+    return_risk=False,
+    centering=False
 ):
     if exclude_index is None:
         raise ValueError("exclude_index must be provided for Ψ_k(r) computation.")
@@ -318,12 +404,11 @@ def approximate_empirical_risk_minimization(
     print(f"Computing \\hat{{\\ba}}_{{\\backslash k}} by excluding data point at index {exclude_index}...")
     ba_init = np.zeros(W.shape[0])
 
-    # Reuse compute_empirical_risk and compute_empirical_risk_grad
     def objective_excl_k(ba):
-        return compute_empirical_risk(ba, K_excl_k, y_excl_k, lambda_reg, loss_function, scaling_factor)
+        return compute_empirical_risk(ba, K_excl_k, y_excl_k, lambda_reg, loss_function, scaling_factor, X_excl_k, centering)
 
     def gradient_excl_k(ba):
-        return compute_empirical_risk_grad(ba, K_excl_k, y_excl_k, lambda_reg, loss_function_grad, scaling_factor)
+        return compute_empirical_risk_grad(ba, K_excl_k, y_excl_k, lambda_reg, loss_function_grad, scaling_factor, X_excl_k, centering)
 
     res = minimize(
         fun=objective_excl_k,
@@ -340,7 +425,7 @@ def approximate_empirical_risk_minimization(
     # Compute Hessian \bH_{\backslash k} at \hat{\ba}_{\backslash k}
     print("Computing Hessian \\bH_{\\backslash k} at \\hat{\\ba}_{\\backslash k}...")
     H_excl_k = compute_empirical_risk_hessian(
-        hat_ba_excl_k, K_excl_k, y_excl_k, lambda_reg, loss_function_hess, scaling_factor
+        hat_ba_excl_k, K_excl_k, y_excl_k, lambda_reg, loss_function_hess, scaling_factor, X_excl_k, centering
     )
     eps = 1e-5
     H_excl_k += eps * np.eye(W.shape[0])
@@ -351,13 +436,13 @@ def approximate_empirical_risk_minimization(
     def S_k_objective(ba):
         return compute_S_k(
             ba, cR_excl_k_at_hat_ba, hat_ba_excl_k, H_excl_k,
-            K_k, y_k, n_full_samples, loss_function, scaling_factor
+            K_k, y_k, n_full_samples, loss_function, scaling_factor, X_k, centering
         )
 
     def S_k_gradient(ba):
         return compute_S_k_grad(
             ba, hat_ba_excl_k, H_excl_k, K_k, y_k,
-            n_full_samples, loss_function_grad, scaling_factor
+            n_full_samples, loss_function_grad, scaling_factor, X_k, centering
         )
 
     # Minimize S_k(ba) starting from \hat{\ba}_{\backslash k}
@@ -367,11 +452,19 @@ def approximate_empirical_risk_minimization(
         x0=hat_ba_excl_k,
         jac=S_k_gradient,
         method='L-BFGS-B',
-        options={'disp': True}
+        options={'disp': False}
     )
     ba_tilde = res_tilde.x
 
+    if return_FZ and return_risk:
+        return ba_tilde, hat_ba_excl_k, K_excl_k, K_k, res_tilde.fun, res.fun
+    elif return_FZ:
+        return ba_tilde, hat_ba_excl_k, K_excl_k, K_k
+    elif return_risk:
+        return ba_tilde, hat_ba_excl_k, res_tilde.fun, res.fun
+
     return ba_tilde, hat_ba_excl_k
+
 
 
 # # Include necessary functions from hermiteFeature module

@@ -106,35 +106,46 @@ if __name__ == "__main__":
     # plt.show()
 
 
-    repeat = 40
+    repeat = 50
+    power = 3
     faaf_norm = dict()
-    for d in range(2,repeat):
+    for d in range(2, repeat):
         signal = True
+        # Assume k, alpha, lambda_reg, loss_function, and loss_function_grad are defined elsewhere
         X, y = generate_data(d, k, alpha, signal=signal)
-        M =  int(alpha * (d ** 2))             # Number of random features
-        # scaling_factor = 1/np.sqrt(M)   
+        M = int(alpha * (d ** 2))  # Number of random features
         W = generate_random_weights(M, d)
-        # y_classification = 2*(y > 0).astype(np.float64)-1
-        # y = y_classification
-        # ba_hat, W = empirical_risk_minimization(X, y, W, lambda_reg, loss_function, loss_function_grad, scaling_factor=scaling_factor)
-        # Calculate data maitrx W * X of size M * n
-        W_X = np.dot(W, X.T)
-        # Apply hermite 2 activation to each entry of W_X
-        W_X = hermite2_activation(W_X)
+        
+        # Compute matrix F_k
+        # F_k will have shape (M, d^k). Each row i is w_i^{\otimes k} flattened.
+        F_k = np.zeros((M, d ** power))
+        for i in range(M):
+            w_i = W[i]  # w_i is a vector in R^d
+            # Compute w_i^{\otimes k}
+            # Start with w_i and iteratively take Kronecker products k-1 times
+            v = w_i.copy()
+            for _ in range(power - 1):
+                v = np.kron(v, w_i)
+            F_k[i, :] = v
+        print("Shape of F_k:", F_k.shape)
+
+
+        # # Apply hermite 2 activation to each entry of W_X
+        # W_X = hermite2_activation(W_X)
         # Calculate the sample covariance matrix of W_X
-        sample_cov = np.dot(W_X, W_X.T)/M
-        # Calculate the operator norm of the sample covariance matrix
-        faaf_norm[d] = np.linalg.norm(sample_cov, 2)
+        # sample_cov = np.dot(W_X, W_X.T)/M
+        # Calculate the operator norm of F matrix
+        faaf_norm[d] = np.linalg.norm(F_k, 2)
         
         
     # For each d in the range, plot the operator norm of the sample covariance matrix
     fig, ax = plt.subplots()
     ax.plot(list(faaf_norm.keys()), list(faaf_norm.values()))
     # Plot y=x for comparison
-    ax.plot(range(2, repeat), range(2, repeat), 'r--')
+    ax.plot(range(2, repeat), np.array(range(2, repeat))**(0.25), 'r--')
     ax.set_xlabel("Dimension")
     ax.set_ylabel("Operator norm of sample covariance matrix")
     ax.set_title("Operator norm of sample covariance matrix vs. Dimension")
     plt.show()
     # Save the plot
-    fig.savefig("figures/Nov30/OperatorNormSampleCovarianceMatrixVsDimension.png")
+    fig.savefig("figures/Dec10/OperatorNormSampleCovarianceMatrixVsDimension.png")
